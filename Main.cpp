@@ -58,31 +58,23 @@ int main()
 
     
     // VÉRTICES
-    // Tenemos dos copias de nuestra figura:
-    // 0 - 5  = parte delantera
-    // 6 - 11 = parte trasera
-    // La diferencia está en la coordenada Z.
+// Tenemos 3 triángulos planos.
+// Cada triángulo tiene un tamaño diferente.
+// La coordenada Z permite colocarlos a diferentes profundidades.
 
     GLfloat vertices[] = {
-
-        
-        // FRENTE
-        -0.5f, -0.5f * float(sqrt(3)) / 3,  0.30f, // 0
-         0.5f, -0.5f * float(sqrt(3)) / 3,  0.30f, // 1
-         0.0f,  0.5f * float(sqrt(3)) * 2 / 3, 0.30f, // 2
-
-         // Vértices internos
-         -0.5f / 2,  0.5f * float(sqrt(3)) / 6,  0.30f, // 3
-          0.5f / 2,  0.5f * float(sqrt(3)) / 6,  0.30f, // 4
-          0.0f, -0.5f * float(sqrt(3)) / 3,  0.30f, // 5 
-        // ATRÁS
-          -0.5f, -0.5f * float(sqrt(3)) / 3, -0.30f, // 6
-           0.5f, -0.5f * float(sqrt(3)) / 3, -0.30f, // 7
-           0.0f,  0.5f * float(sqrt(3)) * 2 / 3, -0.30f, // 8
-           // Vértices internos
-           -0.5f / 2,  0.5f * float(sqrt(3)) / 6, -0.30f, // 9
-            0.5f / 2,  0.5f * float(sqrt(3)) / 6, -0.30f, // 10
-            0.0f, -0.5f * float(sqrt(3)) / 3, -0.30f // 11
+        // TRIÁNGULO 1 - PEQUEÑO
+        -0.20f, -0.15f,  0.20f,   // 0
+         0.20f, -0.15f,  0.20f,   // 1
+         0.00f,  0.20f,  0.20f,   // 2        
+        // TRIÁNGULO 2 - MEDIANO        
+         -0.35f, -0.25f,  0.00f,   // 3
+          0.35f, -0.25f,  0.00f,   // 4
+          0.00f,  0.35f,  0.00f,   // 5        
+        // TRIÁNGULO 3 - GRANDE   
+          -0.50f, -0.35f, -0.20f,   // 6
+           0.50f, -0.35f, -0.20f,   // 7
+           0.00f,  0.50f, -0.20f    // 8
     };
 
     // CREACIÓN DE LA VENTANA
@@ -163,43 +155,18 @@ int main()
     glDeleteShader(fragmentShader);
 
     // ÍNDICES
-    // Cada grupo de 3 índices forma un triángulo.
-    // Tenemos: 3 triángulos delanteros, 3 triángulos traseros, 12 triángulos laterales
-    // Total = 18 triángulos
-    // 18 * 3 = 54 índices
+ // Cada grupo de 3 índices forma un triángulo.
 
     GLuint indices[] =
     {
-       
-        // FRENTE
-        0, 3, 5,
-        3, 2, 4,
-        5, 4, 1,
-        // ATRÁS
-        6, 11, 9,
-        9, 10, 8,
-        11, 7, 10,
-        // PARTE EXTERIOR
-        // Lado izquierdo
-        0, 1, 7,
-        0, 7, 6,
-        // Lado derecho
-        1, 2, 8,
-        1, 8, 7,
-        // Lado inferior
-        2, 0, 6,
-        2, 6, 8,
-    
-        // PARTE INTERIOR
-        // Lado interior izquierdo
-        3, 9, 11,
-        3, 11, 5,
-        // Lado interior derecho
-        4, 10, 8,
-        4, 8, 2,
-        // Lado interior inferior
-        5, 11, 10,
-        5, 10, 4
+        // Triángulo pequeño
+        0, 1, 2,
+
+        // Triángulo mediano
+        3, 4, 5,
+
+        // Triángulo grande
+        6, 7, 8
     };
 
 
@@ -376,7 +343,7 @@ int main()
        glBindVertexArray(VAO);
         glDrawElements(
             GL_TRIANGLES,
-            54,
+            9,
             GL_UNSIGNED_INT,
             0
         );       
