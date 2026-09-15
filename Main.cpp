@@ -1,42 +1,45 @@
-#include<iostream>
-#include<glad/glad.h>
-#include<GLFW/glfw3.h>
+#include <iostream>
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#include <cmath>
 
-
-
+// ======================================================
 // SHADERS
-// Vertex Shader
+// ======================================================
+
+// VERTEX SHADER
 // Se encarga de recibir la posición de cada vértice
-// y aplicar las transformaciones 3D.
-const char* vertexShaderSource = "#version 330 core\n"
+// y aplicar la transformación 3D mediante la matriz MVP.
+
+const char* vertexShaderSource =
+"#version 330 core\n"
+
 "layout (location = 0) in vec3 aPos;\n"
 
-// Matriz del objeto
-"uniform mat4 model;\n"
-
-// Matriz de la cámara
-"uniform mat4 view;\n"
-
-// Matriz de perspectiva
-"uniform mat4 projection;\n"
+// Matriz Model-View-Projection
+"uniform mat4 uMVP;\n"
 
 "void main()\n"
 "{\n"
-"   gl_Position = projection * view * model * vec4(aPos, 1.0);\n"
+"   gl_Position = uMVP * vec4(aPos, 1.0);\n"
 "}\0";
 
 
-// Fragment Shader
-// Se encarga de determinar el color de la figura.
-const char* fragmentShaderSource = "#version 330 core\n"
+// FRAGMENT SHADER
+// Se encarga de determinar el color de los triángulos.
+
+const char* fragmentShaderSource =
+"#version 330 core\n"
+
 "out vec4 FragColor;\n"
+
+// Color enviado desde C++
 "uniform vec4 color;\n"
+
 "void main()\n"
 "{\n"
 "   FragColor = color;\n"
@@ -45,7 +48,10 @@ const char* fragmentShaderSource = "#version 330 core\n"
 
 int main()
 {
+    // ==================================================
     // INICIALIZAR GLFW
+    // ==================================================
+
     glfwInit();
 
     // Configuramos OpenGL 3.3
@@ -55,107 +61,137 @@ int main()
     // Utilizamos el perfil Core
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
+    // Reservamos 24 bits para el Depth Buffer
+    glfwWindowHint(GLFW_DEPTH_BITS, 24);
 
-    
-    // VÉRTICES
-// Tenemos 3 triángulos planos.
-// Cada triángulo tiene un tamaño diferente.
-// La coordenada Z permite colocarlos a diferentes profundidades.
 
-    GLfloat vertices[] = {
-        // TRIÁNGULO 1 - PEQUEÑO
-        -0.20f, -0.15f,  0.20f,   // 0
-         0.20f, -0.15f,  0.20f,   // 1
-         0.00f,  0.20f,  0.20f,   // 2        
-        // TRIÁNGULO 2 - MEDIANO        
-         -0.35f, -0.25f,  0.00f,   // 3
-          0.35f, -0.25f,  0.00f,   // 4
-          0.00f,  0.35f,  0.00f,   // 5        
-        // TRIÁNGULO 3 - GRANDE   
-          -0.50f, -0.35f, -0.20f,   // 6
-           0.50f, -0.35f, -0.20f,   // 7
-           0.00f,  0.50f, -0.20f    // 8
-    };
-
+    // ==================================================
     // CREACIÓN DE LA VENTANA
+    // ==================================================
+
     GLFWwindow* window = glfwCreateWindow(
         800,
-        800,
+        600,
         "OpenGL 3D",
-        NULL,
-        NULL
+        nullptr,
+        nullptr
     );
 
-    if (window == NULL)
+    if (window == nullptr)
     {
-        std::cout << "Failed to create GLFW window" << std::endl;
+        std::cerr << "Failed to create GLFW window" << std::endl;
 
         glfwTerminate();
 
         return -1;
     }
 
+
     // Activamos el contexto de OpenGL
     glfwMakeContextCurrent(window);
 
+
+    // ==================================================
     // INICIALIZACIÓN DE GLAD
+    // ==================================================
+
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     {
+        std::cerr << "Failed to initialize GLAD" << std::endl;
+
         return -1;
     }
 
 
-    // Área donde se renderiza
-    glViewport(0, 0, 800, 800);  
+    // ==================================================
+    // VIEWPORT
+    // ==================================================
+
+    int width;
+    int height;
+
+    glfwGetFramebufferSize(
+        window,
+        &width,
+        &height
+    );
+
+    glViewport(
+        0,
+        0,
+        width,
+        height
+    );
+
+
+    // ==================================================
     // DEPTH TEST
-    // Permite que OpenGL sepa qué partes están
+    // ==================================================
+
+    // Permite que OpenGL determine qué objetos están
     // delante y cuáles están detrás.
+
     glEnable(GL_DEPTH_TEST);
-    // CREACIÓN DE LOS SHADERS
-    // Vertex Shader
-    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
 
-    glShaderSource(
-        vertexShader,
-        1,
-        &vertexShaderSource,
-        NULL
-    );
-
-    glCompileShader(vertexShader);
+    glDepthFunc(GL_LESS);
 
 
-    // Fragment Shader
-    GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    // ==================================================
+    // VÉRTICES
+    // ==================================================
 
-    glShaderSource(
-        fragmentShader,
-        1,
-        &fragmentShaderSource,
-        NULL
-    );
+    // Tenemos 3 triángulos planos.
+    //
+    // Cada triángulo tiene un tamaño diferente.
+    //
+    // La coordenada Z permite colocarlos a diferentes
+    // profundidades dentro del espacio 3D.
+    //
+    // Triángulo 1:
+    // 0, 1, 2
+    //
+    // Triángulo 2:
+    // 3, 4, 5
+    //
+    // Triángulo 3:
+    // 6, 7, 8
 
-    glCompileShader(fragmentShader);
+    GLfloat vertices[] =
+    {
+
+        // ==============================================
+        // TRIÁNGULO 1 - PEQUEÑO
+        // ==============================================
+
+        -0.20f, -0.15f,  0.20f,    // 0
+         0.20f, -0.15f,  0.20f,    // 1
+         0.00f,  0.20f,  0.20f,    // 2
 
 
-    
-    // SHADER PROGRAM
-    GLuint shaderProgram = glCreateProgram();
+         // ==============================================
+         // TRIÁNGULO 2 - MEDIANO
+         // ==============================================
 
-    glAttachShader(shaderProgram, vertexShader);
-
-    glAttachShader(shaderProgram, fragmentShader);
-
-    glLinkProgram(shaderProgram);
+         -0.35f, -0.25f,  0.00f,    // 3
+          0.35f, -0.25f,  0.00f,    // 4
+          0.00f,  0.35f,  0.00f,    // 5
 
 
-    // IMPORTANTE:
-    // Para eliminar shaders usamos glDeleteShader
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
+          // ==============================================
+          // TRIÁNGULO 3 - GRANDE
+          // ==============================================
 
+          -0.50f, -0.35f, -0.20f,    // 6
+           0.50f, -0.35f, -0.20f,    // 7
+           0.00f,  0.50f, -0.20f     // 8
+    };
+
+
+    // ==================================================
     // ÍNDICES
- // Cada grupo de 3 índices forma un triángulo.
+    // ==================================================
+
+    // Cada grupo de 3 índices forma un triángulo.
 
     GLuint indices[] =
     {
@@ -170,23 +206,120 @@ int main()
     };
 
 
-    
+    // ==================================================
+    // CREACIÓN DE LOS SHADERS
+    // ==================================================
+
+    // ------------------------------
+    // VERTEX SHADER
+    // ------------------------------
+
+    GLuint vertexShader =
+        glCreateShader(GL_VERTEX_SHADER);
+
+    glShaderSource(
+        vertexShader,
+        1,
+        &vertexShaderSource,
+        nullptr
+    );
+
+    glCompileShader(vertexShader);
+
+
+    // ------------------------------
+    // FRAGMENT SHADER
+    // ------------------------------
+
+    GLuint fragmentShader =
+        glCreateShader(GL_FRAGMENT_SHADER);
+
+    glShaderSource(
+        fragmentShader,
+        1,
+        &fragmentShaderSource,
+        nullptr
+    );
+
+    glCompileShader(fragmentShader);
+
+
+    // ==================================================
+    // SHADER PROGRAM
+    // ==================================================
+
+    GLuint shaderProgram =
+        glCreateProgram();
+
+    glAttachShader(
+        shaderProgram,
+        vertexShader
+    );
+
+    glAttachShader(
+        shaderProgram,
+        fragmentShader
+    );
+
+    glLinkProgram(shaderProgram);
+
+
+    // Los shaders individuales ya no son necesarios
+    // después de enlazarlos al programa.
+
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+
+
+    // ==================================================
     // VAO, VBO Y EBO
-    GLuint VAO, VBO, EBO;
+    // ==================================================
 
-    glGenVertexArrays(1, &VAO);
+    GLuint VAO;
+    GLuint VBO;
+    GLuint EBO;
 
-    glGenBuffers(1, &VBO);
 
-    glGenBuffers(1, &EBO);
+    // Generamos los objetos
 
+    glGenVertexArrays(
+        1,
+        &VAO
+    );
+
+    glGenBuffers(
+        1,
+        &VBO
+    );
+
+    glGenBuffers(
+        1,
+        &EBO
+    );
+
+
+    // ==================================================
+    // VAO
+    // ==================================================
 
     // Activamos el VAO
+
     glBindVertexArray(VAO);
 
 
-      // VBO
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    // ==================================================
+    // VBO
+    // ==================================================
+
+    // Activamos el VBO
+
+    glBindBuffer(
+        GL_ARRAY_BUFFER,
+        VBO
+    );
+
+
+    // Guardamos los vértices en el VBO
 
     glBufferData(
         GL_ARRAY_BUFFER,
@@ -196,9 +329,19 @@ int main()
     );
 
 
-   
+    // ==================================================
     // EBO
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    // ==================================================
+
+    // Activamos el EBO
+
+    glBindBuffer(
+        GL_ELEMENT_ARRAY_BUFFER,
+        EBO
+    );
+
+
+    // Guardamos los índices
 
     glBufferData(
         GL_ELEMENT_ARRAY_BUFFER,
@@ -208,7 +351,18 @@ int main()
     );
 
 
+    // ==================================================
     // CONFIGURACIÓN DE LOS VÉRTICES
+    // ==================================================
+
+    // Cada vértice tiene:
+    //
+    // X
+    // Y
+    // Z
+    //
+    // Por eso utilizamos 3 componentes.
+
     glVertexAttribPointer(
         0,
         3,
@@ -221,43 +375,43 @@ int main()
     glEnableVertexAttribArray(0);
 
 
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    // Desactivamos el VBO
+
+    glBindBuffer(
+        GL_ARRAY_BUFFER,
+        0
+    );
+
+
+    // Desactivamos el VAO
 
     glBindVertexArray(0);
 
-    // UBICACIÓN DE LAS MATRICES
+
+    // ==================================================
+    // UBICACIÓN DE LA MATRIZ MVP
+    // ==================================================
+
     glUseProgram(shaderProgram);
 
-    GLint modelLoc =
-        glGetUniformLocation(shaderProgram, "model");
+    GLint mvpLoc =
+        glGetUniformLocation(
+            shaderProgram,
+            "uMVP"
+        );
 
-    GLint viewLoc =
-        glGetUniformLocation(shaderProgram, "view");
 
-    GLint projectionLoc =
-        glGetUniformLocation(shaderProgram, "projection");
-   
-    // MATRIZ VISTA-CAMERA
-    glm::mat4 view = glm::mat4(1.0f);
-
-    view = glm::translate(
-        view,
-        glm::vec3(0.0f, 0.0f, -2.0f)
-    );
-   
-    // MATRIZ PROJECTION
-    glm::mat4 projection = glm::perspective(
-        glm::radians(45.0f),
-        800.0f / 800.0f,
-        0.1f,
-        100.0f
-    );
-    
+    // ==================================================
     // BUCLE PRINCIPAL
+    // ==================================================
+
     while (!glfwWindowShouldClose(window))
     {
 
-        // Limpiamos el color y el Depth Buffer
+        // ==================================================
+        // LIMPIAR PANTALLA
+        // ==================================================
+
         glClearColor(
             0.941f,
             0.502f,
@@ -271,59 +425,139 @@ int main()
         );
 
 
-        // Activamos el shader
+        // ==================================================
+        // ACTIVAR SHADER
+        // ==================================================
+
         glUseProgram(shaderProgram);
 
 
-        
+        // ==================================================
+        // OBTENER TAMAÑO DE LA VENTANA
+        // ==================================================
+
+        glfwGetFramebufferSize(
+            window,
+            &width,
+            &height
+        );
+
+
+        // Evitamos dividir entre cero
+
+        float aspect =
+            width > 0
+            ? (float)width / (float)height
+            : 4.0f / 3.0f;
+
+
+        // ==================================================
+        // MATRIZ PROJECTION
+        // ==================================================
+
+        // glm::perspective crea una perspectiva 3D.
+        //
+        // 60 grados = campo de visión
+        // aspect    = relación ancho / alto
+        // 0.1       = distancia mínima
+        // 100       = distancia máxima
+
+        glm::mat4 projection =
+            glm::perspective(
+                glm::radians(60.0f),
+                aspect,
+                0.1f,
+                100.0f
+            );
+
+
+        // ==================================================
+        // MATRIZ VIEW
+        // ==================================================
+
+        // glm::lookAt crea la cámara.
+        //
+        // Primer vector:
+        // posición de la cámara
+        //
+        // Segundo vector:
+        // punto hacia donde mira
+        //
+        // Tercer vector:
+        // dirección que representa "arriba"
+
+        glm::mat4 view =
+            glm::lookAt(
+                glm::vec3(0.0f, 0.0f, 3.0f),
+                glm::vec3(0.0f, 0.0f, 0.0f),
+                glm::vec3(0.0f, 1.0f, 0.0f)
+            );
+
+
+        // ==================================================
         // MATRIZ MODEL
-        glm::mat4 model = glm::mat4(1.0f);
+        // ==================================================
+
+        // glm::mat4(1.0f) crea una matriz identidad.
+
+        glm::mat4 model =
+            glm::mat4(1.0f);
 
 
-        // Rotación en el eje Y
-        model = glm::rotate(
-            model,
-            (float)glfwGetTime(),
-            glm::vec3(0.0f, 1.0f, 0.0f)
-        );
+        // Obtenemos el tiempo que lleva ejecutándose
+        // el programa.
+
+        float t =
+            (float)glfwGetTime();
 
 
-        // También podemos inclinar ligeramente
-        // el objeto sobre el eje X.
-        model = glm::rotate(
-            model,
-            glm::radians(-15.0f),
-            glm::vec3(1.0f, 0.0f, 0.0f)
-        );
+        // Rotamos los tres triángulos juntos
+        // alrededor del eje Y.
+
+        model =
+            glm::rotate(
+                model,
+                t * glm::radians(15.0f),
+                glm::vec3(
+                    0.0f,
+                    1.0f,
+                    0.0f
+                )
+            );
 
 
-        // Enviamos MODEL al Vertex Shader
+        // ==================================================
+        // MATRIZ MVP
+        // ==================================================
+
+        // Combinamos las tres transformaciones:
+        //
+        // Projection
+        // View
+        // Model
+
+        glm::mat4 mvp =
+            projection *
+            view *
+            model;
+
+
+        // ==================================================
+        // ENVIAR MVP AL VERTEX SHADER
+        // ==================================================
+
         glUniformMatrix4fv(
-            modelLoc,
+            mvpLoc,
             1,
             GL_FALSE,
-            glm::value_ptr(model)
+            glm::value_ptr(mvp)
         );
 
 
-        // Enviamos VIEW
-        glUniformMatrix4fv(
-            viewLoc,
-            1,
-            GL_FALSE,
-            glm::value_ptr(view)
-        );
-
-
-        // Enviamos PROJECTION
-        glUniformMatrix4fv(
-            projectionLoc,
-            1,
-            GL_FALSE,
-            glm::value_ptr(projection)
-        );
-  
+        // ==================================================
         // COLOR
+        // ==================================================
+
         GLint colorLocation =
             glGetUniformLocation(
                 shaderProgram,
@@ -332,35 +566,70 @@ int main()
 
 
         // Color naranja
+
         glUniform4f(
             colorLocation,
             0.949f,
             0.604f,
             0.180f,
             1.0f
-        );      
-        // DIBUJAR       
-       glBindVertexArray(VAO);
+        );
+
+
+        // ==================================================
+        // DIBUJAR LOS TRIÁNGULOS
+        // ==================================================
+
+        glBindVertexArray(VAO);
+
         glDrawElements(
             GL_TRIANGLES,
             9,
             GL_UNSIGNED_INT,
             0
-        );       
-        // MOSTRAR EN PANTALLA       
+        );
+
+
+        // ==================================================
+        // MOSTRAR EN PANTALLA
+        // ==================================================
+
         glfwSwapBuffers(window);
+
         glfwPollEvents();
     }
-   
-    // LIBERACIÓN DE RECURSOS
 
-    glDeleteVertexArrays(1, &VAO);
-    glDeleteBuffers(1, &VBO);
-    glDeleteBuffers(1, &EBO);
-    glDeleteProgram(shaderProgram);
-   
+
+    // ==================================================
+    // LIBERACIÓN DE RECURSOS
+    // ==================================================
+
+    glDeleteVertexArrays(
+        1,
+        &VAO
+    );
+
+    glDeleteBuffers(
+        1,
+        &VBO
+    );
+
+    glDeleteBuffers(
+        1,
+        &EBO
+    );
+
+    glDeleteProgram(
+        shaderProgram
+    );
+
+
+    // ==================================================
     // FINALIZACIÓN
+    // ==================================================
+
     glfwDestroyWindow(window);
+
     glfwTerminate();
 
     return 0;
