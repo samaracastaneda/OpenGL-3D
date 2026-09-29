@@ -1,4 +1,7 @@
+
 #include <iostream>
+#include <cmath>
+
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
@@ -9,78 +12,61 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+// CONFIGURACIÓN
+const unsigned int SCR_WIDTH = 800;
+const unsigned int SCR_HEIGHT = 800;
 
-// ============================================================
-// SHADERS
-// ============================================================
+// CÁMARA
+glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
+glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
+glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
-// VERTEX SHADER
-// Se encarga de recibir la posición de cada vértice,
-// sus coordenadas de textura y aplicar la transformación
-// 3D mediante la matriz MVP.
+float cameraSpeed = 0.02f;
+// Movimiento de la cámara con el teclado
+void processInput(GLFWwindow* window)
+{
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+        cameraPos += cameraSpeed * cameraFront;
 
-const char* vertexShaderSource =
-"#version 330 core\n"
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+        cameraPos -= cameraSpeed * cameraFront;
 
-"layout (location = 0) in vec3 aPos;\n"
-"layout (location = 1) in vec4 aColor;\n"
-"layout (location = 3) in vec2 aTexCoord;\n"
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+        cameraPos -= glm::normalize(
+            glm::cross(cameraFront, cameraUp)
+        ) * cameraSpeed;
 
-"uniform mat4 uMVP;\n"
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+        cameraPos += glm::normalize(
+            glm::cross(cameraFront, cameraUp)
+        ) * cameraSpeed;
 
-"out vec4 VertexColor;\n"
-"out vec2 TexCoord;\n"
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+        cameraPos += cameraSpeed * cameraUp;
 
-"void main()\n"
-"{\n"
-"   gl_Position = uMVP * vec4(aPos, 1.0);\n"
-"   VertexColor = aColor;\n"
-"   TexCoord = aTexCoord;\n"
-"}\0";
+    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+        cameraPos -= cameraSpeed * cameraUp;
+}
 
-
-// FRAGMENT SHADER
-// Se encarga de determinar el color final de cada fragmento.
-// En este caso, toma el color de la textura y lo multiplica
-// por el color del vértice.
-
-const char* fragmentShaderSource =
-"#version 330 core\n"
-
-"in vec4 VertexColor;\n"
-"in vec2 TexCoord;\n"
-
-"uniform sampler2D texture1;\n"
-
-"out vec4 FragColor;\n"
-
-"void main()\n"
-"{\n"
-"   FragColor = texture(texture1, TexCoord) * VertexColor;\n"
-"}\n\0";
-
-
-// ============================================================
-// FUNCIÓN PARA CARGAR TEXTURAS
-// ============================================================
-
+// CARGA DE TEXTURAS
 void LoadTexturesFromFiles(
     const char* texturePaths[],
     int count,
     GLuint textures[]
 )
 {
-    // Volteamos verticalmente las imágenes para que
-    // las coordenadas UV coincidan correctamente.
     stbi_set_flip_vertically_on_load(true);
 
     for (int i = 0; i < count; i++)
     {
-        int width;
-        int height;
-        int nrChannels;
+        int width = 0;
+        int height = 0;
+        int nrChannels = 0;
 
-        // Cargar la imagen utilizando stb_image
+        std::cout << "\nCargando textura "
+            << i + 1 << ": "
+            << texturePaths[i] << std::endl;
+
         unsigned char* data = stbi_load(
             texturePaths[i],
             &width,
@@ -89,112 +75,69 @@ void LoadTexturesFromFiles(
             0
         );
 
-
-        // ----------------------------------------------------
-        // COMPROBAR SI LA IMAGEN SE CARGÓ
-        // ----------------------------------------------------
-
         if (!data)
         {
-            std::cout
-                << "ERROR NO CARGO: "
-                << texturePaths[i]
-                << std::endl;
+            std::cout << "ERROR NO CARGO: "
+                << texturePaths[i] << std::endl;
 
-            std::cout
-                << "STB: "
+            std::cout << "STB: "
                 << stbi_failure_reason()
                 << std::endl;
 
-            // Si no cargó, pasamos a la siguiente textura.
             continue;
         }
 
-
-        // Mostrar información de la textura cargada
-        std::cout
-            << "OK CARGO: "
-            << texturePaths[i]
-            << " ("
-            << width
-            << "x"
-            << height
-            << ")"
+        std::cout << "OK CARGO: "
+            << width << "x" << height
             << std::endl;
 
+        // Crear y configurar textura
+        glBindTexture(GL_TEXTURE_2D, textures[i]);
 
-        // ----------------------------------------------------
-        // ACTIVAR LA TEXTURA
-        // ----------------------------------------------------
-
-        glBindTexture(
-            GL_TEXTURE_2D,
-            textures[i]
-        );
-
-
-        // ----------------------------------------------------
-        // CONFIGURACIÓN DE LA TEXTURA
-        // ----------------------------------------------------
-
-        // Repetición horizontal
         glTexParameteri(
             GL_TEXTURE_2D,
             GL_TEXTURE_WRAP_S,
             GL_REPEAT
         );
 
-        // Repetición vertical
         glTexParameteri(
             GL_TEXTURE_2D,
             GL_TEXTURE_WRAP_T,
             GL_REPEAT
         );
 
-
-        // Filtro cuando la textura se ve pequeña
         glTexParameteri(
             GL_TEXTURE_2D,
             GL_TEXTURE_MIN_FILTER,
-            GL_LINEAR_MIPMAP_LINEAR
+            GL_LINEAR
         );
 
-        // Filtro cuando la textura se ve grande
         glTexParameteri(
             GL_TEXTURE_2D,
             GL_TEXTURE_MAG_FILTER,
             GL_LINEAR
         );
 
-
-        // ----------------------------------------------------
-        // DETERMINAR EL FORMATO DE LA IMAGEN
-        // ----------------------------------------------------
-
+        // Determinar formato según canales
         GLenum format;
 
         if (nrChannels == 1)
-        {
             format = GL_RED;
-        }
         else if (nrChannels == 3)
-        {
             format = GL_RGB;
-        }
         else if (nrChannels == 4)
-        {
             format = GL_RGBA;
-        }
         else
         {
-            format = GL_RGB;
+            std::cout << "ERROR: canales no soportados."
+                << std::endl;
+
+            stbi_image_free(data);
+            glBindTexture(GL_TEXTURE_2D, 0);
+            continue;
         }
 
-
-        // ----------------------------------------------------
-        // ENVIAR LA IMAGEN A OPENGL
-        // ----------------------------------------------------
-
+        // Enviar imagen a OpenGL
         glTexImage2D(
             GL_TEXTURE_2D,
             0,
@@ -207,107 +150,76 @@ void LoadTexturesFromFiles(
             data
         );
 
+        GLenum error = glGetError();
 
-        // Crear mipmaps para mejorar la calidad
-        // cuando la textura cambia de tamaño.
-        glGenerateMipmap(GL_TEXTURE_2D);
+        if (error != GL_NO_ERROR)
+        {
+            std::cout << "ERROR DE OPENGL EN TEXTURA "
+                << i + 1 << ": "
+                << error << std::endl;
+        }
+        else
+        {
+            std::cout << "TEXTURA "
+                << i + 1
+                << " CARGADA EN OPENGL"
+                << std::endl;
+        }
 
-
-        // Liberar la memoria utilizada por stb_image
         stbi_image_free(data);
+        glBindTexture(GL_TEXTURE_2D, 0);
     }
-
-
-    // Desactivar la textura
-    glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-
-// ============================================================
-// FUNCIÓN PRINCIPAL
-// ============================================================
-
+// MAIN
 int main()
 {
-    // ========================================================
-    // INICIALIZAR GLFW
-    // ========================================================
+    // 1. Inicializar GLFW y crear ventana
+    if (!glfwInit())
+    {
+        std::cout << "ERROR: No se pudo inicializar GLFW."
+            << std::endl;
+        return -1;
+    }
 
-    glfwInit();
-
-    // Configuramos OpenGL 3.3
-    glfwWindowHint(
-        GLFW_CONTEXT_VERSION_MAJOR,
-        3
-    );
-
-    glfwWindowHint(
-        GLFW_CONTEXT_VERSION_MINOR,
-        3
-    );
-
-    // Utilizamos el perfil Core
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(
         GLFW_OPENGL_PROFILE,
         GLFW_OPENGL_CORE_PROFILE
     );
 
-    // Reservamos 24 bits para el Depth Buffer
-    glfwWindowHint(
-        GLFW_DEPTH_BITS,
-        24
+    GLFWwindow* window = glfwCreateWindow(
+        SCR_WIDTH,
+        SCR_HEIGHT,
+        "OpenGL 3D",
+        NULL,
+        NULL
     );
 
-
-    // ========================================================
-    // CREACIÓN DE LA VENTANA
-    // ========================================================
-
-    GLFWwindow* window =
-        glfwCreateWindow(
-            800,
-            600,
-            "OpenGL 3D",
-            nullptr,
-            nullptr
-        );
-
-
-    if (window == nullptr)
+    if (window == NULL)
     {
-        std::cerr
-            << "Failed to create GLFW window"
+        std::cout << "ERROR: No se pudo crear la ventana."
             << std::endl;
 
         glfwTerminate();
-
         return -1;
     }
 
-
-    // Activamos el contexto de OpenGL
     glfwMakeContextCurrent(window);
-
-
-    // ========================================================
-    // INICIALIZACIÓN DE GLAD
-    // ========================================================
-
+    
+    // 2. Inicializar GLAD 
     if (!gladLoadGLLoader(
         (GLADloadproc)glfwGetProcAddress))
     {
-        std::cerr
-            << "Failed to initialize GLAD"
+        std::cout << "ERROR: No se pudo inicializar GLAD."
             << std::endl;
 
+        glfwTerminate();
         return -1;
     }
-
-
-    // ========================================================
-    // VIEWPORT
-    // ========================================================
-
+    
+    // 3. Configurar viewport
     int width;
     int height;
 
@@ -317,212 +229,124 @@ int main()
         &height
     );
 
-    glViewport(
-        0,
-        0,
-        width,
-        height
-    );
+    glViewport(0, 0, width, height);
+    
+    // SHADERS
+    const char* vertexShaderSource =
+        "#version 330 core\n"
+        "layout (location = 0) in vec3 aPos;\n"
+        "layout (location = 1) in vec4 aColor;\n"
+        "layout (location = 3) in vec2 aTexCoord;\n"
 
+        "uniform mat4 uMVP;\n"
 
-    // ========================================================
-    // DEPTH TEST
-    // ========================================================
+        "out vec4 VertexColor;\n"
+        "out vec2 TexCoord;\n"
 
-    // Permite que OpenGL determine qué objetos están
-    // delante y cuáles están detrás.
+        "void main()\n"
+        "{\n"
+        "   gl_Position = uMVP * vec4(aPos, 1.0);\n"
+        "   VertexColor = aColor;\n"
+        "   TexCoord = aTexCoord;\n"
+        "}\0";
 
-    glEnable(GL_DEPTH_TEST);
+    const char* fragmentShaderSource =
+        "#version 330 core\n"
 
-    glDepthFunc(GL_LESS);
+        "in vec4 VertexColor;\n"
+        "in vec2 TexCoord;\n"
 
+        "uniform sampler2D texture1;\n"
 
-    // ========================================================
-    // VÉRTICES
-    // ========================================================
+        "out vec4 FragColor;\n"
 
-    // Tenemos 3 triángulos planos.
-    // Cada triángulo tiene un tamaño diferente.
-    //
-    // Cada vértice contiene:
-    //
-    // 3 valores -> posición X,Y,Z
-    // 4 valores -> color R,G,B,A
-    // 2 valores -> coordenadas de textura U,V
-    //
-    // Total = 9 valores por vértice.
+        "void main()\n"
+        "{\n"
+        "   FragColor = texture(texture1, TexCoord)"
+        " * VertexColor;\n"
+        "}\n\0";
 
-
-    GLfloat vertices[] =
-    {
-        // ====================================================
-        // TRIÁNGULO PEQUEÑO
-        // posición              color                 UV
-        // ====================================================
-
-        -0.30f, -0.20f,  0.20f,
-         1, 1, 1, 1,
-         0.0f, 0.0f,
-
-         0.10f, -0.20f,  0.20f,
-         1, 1, 1, 1,
-         1.0f, 0.0f,
-
-        -0.10f,  0.20f,  0.20f,
-         1, 1, 1, 1,
-         0.5f, 1.0f,
-
-
-         // ====================================================
-         // TRIÁNGULO MEDIANO
-         // ====================================================
-
-         -0.40f, -0.35f,  0.00f,
-          1, 1, 1, 1,
-          0.0f, 0.0f,
-
-          0.40f, -0.35f,  0.00f,
-          1, 1, 1, 1,
-          1.0f, 0.0f,
-
-          0.00f,  0.40f,  0.00f,
-          1, 1, 1, 1,
-          0.5f, 1.0f,
-
-
-          // ====================================================
-          // TRIÁNGULO GRANDE
-          // ====================================================
-
-          -0.60f, -0.50f, -0.20f,
-           1, 1, 1, 1,
-           0.0f, 0.0f,
-
-           0.60f, -0.50f, -0.20f,
-           1, 1, 1, 1,
-           1.0f, 0.0f,
-
-           0.00f,  0.60f, -0.20f,
-           1, 1, 1, 1,
-           0.5f, 1.0f
-    };
-
-
-    // ========================================================
-    // ÍNDICES
-    // ========================================================
-
-    // Cada grupo de 3 índices forma un triángulo.
-
-    GLuint indices[] =
-    {
-        0, 1, 2,       // Triángulo pequeño
-        3, 4, 5,       // Triángulo mediano
-        6, 7, 8        // Triángulo grande
-    };
-
-
-    // ========================================================
-    // CREACIÓN DE LOS SHADERS
-    // ========================================================
-
-
-    // --------------------------------------------------------
-    // VERTEX SHADER
-    // --------------------------------------------------------
-
-    GLuint vertexShader =
-        glCreateShader(GL_VERTEX_SHADER);
+    // Crear y compilar shaders
+    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
 
     glShaderSource(
         vertexShader,
         1,
         &vertexShaderSource,
-        nullptr
+        NULL
     );
 
     glCompileShader(vertexShader);
 
-
-    // --------------------------------------------------------
-    // FRAGMENT SHADER
-    // --------------------------------------------------------
-
-    GLuint fragmentShader =
+   GLuint fragmentShader =
         glCreateShader(GL_FRAGMENT_SHADER);
 
     glShaderSource(
         fragmentShader,
         1,
         &fragmentShaderSource,
-        nullptr
+        NULL
     );
 
     glCompileShader(fragmentShader);
 
+    // Crear programa de shaders
+    GLuint shaderProgram = glCreateProgram();
 
-    // ========================================================
-    // SHADER PROGRAM
-    // ========================================================
-
-    GLuint shaderProgram =
-        glCreateProgram();
-
-    glAttachShader(
-        shaderProgram,
-        vertexShader
-    );
-
-    glAttachShader(
-        shaderProgram,
-        fragmentShader
-    );
+    glAttachShader(shaderProgram, vertexShader);
+    glAttachShader(shaderProgram, fragmentShader);
 
     glLinkProgram(shaderProgram);
-
-
-    // Los shaders individuales ya no son necesarios
-    // después de enlazarlos al programa.
 
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
 
+    // GEOMETRÍA DE LA PIRÁMIDE
+    // Cada vértice contiene:
+    // posición (3) + color (4) + textura (2) = 9 valores
 
-    // ========================================================
-    // VAO, VBO Y EBO
-    // ========================================================
+    GLfloat vertices[] =
+    {
+        // CARA FRONTAL
+        -0.6f, -0.5f, 0.0f,  1,1,1,1,  0.0f,0.0f,
+         0.6f, -0.5f, 0.0f,  1,1,1,1,  1.0f,0.0f,
+         0.0f,  0.0f, 0.8f,  1,1,1,1,  0.5f,1.0f,
 
-    GLuint VAO;
-    GLuint VBO;
-    GLuint EBO;
+         // CARA DERECHA
+          0.6f, -0.5f, 0.0f,  1,1,1,1,  0.0f,0.0f,
+          0.0f,  0.5f, 0.0f,  1,1,1,1,  1.0f,0.0f,
+          0.0f,  0.0f, 0.8f,  1,1,1,1,  0.5f,1.0f,
 
+          // CARA IZQUIERDA
+           0.0f,  0.5f, 0.0f,  1,1,1,1,  0.0f,0.0f,
+          -0.6f, -0.5f, 0.0f,  1,1,1,1,  1.0f,0.0f,
+           0.0f,  0.0f, 0.8f,  1,1,1,1,  0.5f,1.0f,
 
-    // Generamos los objetos
+           // BASE
+           -0.6f, -0.5f, 0.0f,  1,1,1,1,  0.0f,0.0f,
+            0.0f,  0.5f, 0.0f,  1,1,1,1,  1.0f,0.0f,
+            0.6f, -0.5f, 0.0f,  1,1,1,1,  0.5f,1.0f
+    };
+
+    GLuint indices[] =
+    {
+        0, 1, 2,       // Frontal
+        3, 4, 5,       // Derecha
+        6, 7, 8,       // Izquierda
+        9, 10, 11      // Base
+    };
+
+    // VAO, VBO Y EBO 
+    GLuint VAO, VBO, EBO;
+
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
     glGenBuffers(1, &EBO);
 
-
-    // ========================================================
-    // VAO
-    // ========================================================
-
-    // Activamos el VAO
     glBindVertexArray(VAO);
 
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
 
-    // ========================================================
-    // VBO
-    // ========================================================
-
-    // Activamos el VBO
-    glBindBuffer(
-        GL_ARRAY_BUFFER,
-        VBO
-    );
-
-
-    // Guardamos los vértices en el VBO
     glBufferData(
         GL_ARRAY_BUFFER,
         sizeof(vertices),
@@ -530,19 +354,8 @@ int main()
         GL_STATIC_DRAW
     );
 
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
 
-    // ========================================================
-    // EBO
-    // ========================================================
-
-    // Activamos el EBO
-    glBindBuffer(
-        GL_ELEMENT_ARRAY_BUFFER,
-        EBO
-    );
-
-
-    // Guardamos los índices
     glBufferData(
         GL_ELEMENT_ARRAY_BUFFER,
         sizeof(indices),
@@ -550,24 +363,7 @@ int main()
         GL_STATIC_DRAW
     );
 
-
-    // ========================================================
-    // CONFIGURACIÓN DE LOS ATRIBUTOS DE LOS VÉRTICES
-    // ========================================================
-
-    // Cada vértice tiene 9 floats:
-    //
-    // posición = 3
-    // color = 4
-    // UV = 2
-    //
-    // Total = 9
-
-
-    // --------------------------------------------------------
-    // POSICIÓN
-    // --------------------------------------------------------
-
+    // Posición
     glVertexAttribPointer(
         0,
         3,
@@ -579,11 +375,7 @@ int main()
 
     glEnableVertexAttribArray(0);
 
-
-    // --------------------------------------------------------
-    // COLOR
-    // --------------------------------------------------------
-
+    // Color
     glVertexAttribPointer(
         1,
         4,
@@ -595,11 +387,7 @@ int main()
 
     glEnableVertexAttribArray(1);
 
-
-    // --------------------------------------------------------
-    // COORDENADAS DE TEXTURA
-    // --------------------------------------------------------
-
+    // Coordenadas de textura
     glVertexAttribPointer(
         3,
         2,
@@ -610,21 +398,11 @@ int main()
     );
 
     glEnableVertexAttribArray(3);
+    
+    // TEXTURAS
+    GLuint textures[3];
 
-
-    // Desactivamos el VBO
-    glBindBuffer(
-        GL_ARRAY_BUFFER,
-        0
-    );
-
-    // Desactivamos el VAO
-    glBindVertexArray(0);
-
-
-    // ========================================================
-    // RUTAS DE LAS TEXTURAS
-    // ========================================================
+    glGenTextures(3, textures);
 
     const char* texturePaths[3] =
     {
@@ -633,36 +411,14 @@ int main()
         "images/texture3.jpeg"
     };
 
-
-    // ========================================================
-    // CREACIÓN DE LAS TEXTURAS
-    // ========================================================
-
-    GLuint textures[3];
-
-    glGenTextures(
-        3,
-        textures
-    );
-
-
-    // Cargamos las tres imágenes
     LoadTexturesFromFiles(
         texturePaths,
         3,
         textures
     );
-
-
-    // ========================================================
-    // UBICACIÓN DE LOS UNIFORMS
-    // ========================================================
-
-    GLint mvpLoc =
-        glGetUniformLocation(
-            shaderProgram,
-            "uMVP"
-        );
+    
+    // CONFIGURAR SHADER Y TEXTURA
+    glUseProgram(shaderProgram);
 
     GLint texLoc =
         glGetUniformLocation(
@@ -670,138 +426,69 @@ int main()
             "texture1"
         );
 
-
-    // Activamos el programa de shaders
-    glUseProgram(shaderProgram);
-
-
-    // Utilizamos la unidad de textura 0
     glActiveTexture(GL_TEXTURE0);
 
-
-    // Le indicamos al sampler que utilice
-    // la unidad de textura 0.
-
     if (texLoc >= 0)
-    {
-        glUniform1i(
-            texLoc,
-            0
+        glUniform1i(texLoc, 0);
+
+    GLint mvpLoc =
+        glGetUniformLocation(
+            shaderProgram,
+            "uMVP"
         );
-    }
 
-
-    // ========================================================
+    // Activar profundidad
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+    
     // BUCLE PRINCIPAL
-    // ========================================================
-
     while (!glfwWindowShouldClose(window))
     {
-        // ----------------------------------------------------
-        // LIMPIAR LA PANTALLA
-        // ----------------------------------------------------
+        processInput(window);
 
+        float t = (float)glfwGetTime();
+        // Limpiar pantalla
         glClearColor(
-            0.07f,
-            0.13f,
-            0.17f,
+            0.30f,
+            0.126f,
+            0.160f,
             1.0f
         );
 
-        glClear(
-            GL_COLOR_BUFFER_BIT |
-            GL_DEPTH_BUFFER_BIT
-        );
-
-
-        // ----------------------------------------------------
-        // ACTIVAR SHADER Y VAO
-        // ----------------------------------------------------
-
-        glUseProgram(shaderProgram);
-
-        glBindVertexArray(VAO);
-
-
-        // ----------------------------------------------------
-        // MATRIZ DE PROYECCIÓN
-        // ----------------------------------------------------
-
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+       
+        // MATRICES
+        // Proyección, Vista y Modelo (MVP)     
         glm::mat4 projection =
             glm::perspective(
                 glm::radians(60.0f),
-
-                // Relación correcta de la ventana
                 (float)width / (float)height,
-
                 0.1f,
                 100.0f
             );
 
-
-        // ----------------------------------------------------
-        // MATRIZ DE VISTA
-        // ----------------------------------------------------
-
         glm::mat4 view =
             glm::lookAt(
-                glm::vec3(
-                    0.0f,
-                    0.0f,
-                    3.0f
-                ),
-
-                glm::vec3(
-                    0.0f,
-                    0.0f,
-                    0.0f
-                ),
-
-                glm::vec3(
-                    0.0f,
-                    1.0f,
-                    0.0f
-                )
+                cameraPos,
+                cameraPos + cameraFront,
+                cameraUp
             );
-
-
-        // ----------------------------------------------------
-        // MATRIZ DE MODELO
-        // ----------------------------------------------------
 
         glm::mat4 model =
             glm::mat4(1.0f);
 
-
-        // Tiempo transcurrido
-        float t =
-            (float)glfwGetTime();
-
-
-        // Rotación de los tres triángulos
-        model =
-            glm::rotate(
-                model,
-                t * glm::radians(30.0f),
-                glm::vec3(
-                    0.0f,
-                    1.0f,
-                    0.0f
-                )
-            );
-
-
-        // ----------------------------------------------------
-        // MATRIZ MVP
-        // ----------------------------------------------------
+        model = glm::rotate(
+            model,
+            t * glm::radians(30.0f),
+            glm::vec3(0.0f, 1.0f, 0.0f)
+        );
 
         glm::mat4 mvp =
-            projection *
-            view *
-            model;
+            projection * view * model;
 
+        // Enviar MVP al shader
+        glUseProgram(shaderProgram);
 
-        // Enviamos la matriz al Vertex Shader
         glUniformMatrix4fv(
             mvpLoc,
             1,
@@ -809,36 +496,21 @@ int main()
             glm::value_ptr(mvp)
         );
 
-
-        // ====================================================
-        // TRIÁNGULO 1
-        // ====================================================
-
-        glActiveTexture(GL_TEXTURE0);
-
-        glBindTexture(
-            GL_TEXTURE_2D,
-            textures[0]
-        );
+        glBindVertexArray(VAO);
+       
+        // DIBUJAR CADA CARA CON UNA TEXTURA        
+        // Cara frontal
+        glBindTexture(GL_TEXTURE_2D, textures[0]);
 
         glDrawElements(
             GL_TRIANGLES,
             3,
             GL_UNSIGNED_INT,
-            (void*)0
+            (void*)(0 * sizeof(GLuint))
         );
 
-
-        // ====================================================
-        // TRIÁNGULO 2
-        // ====================================================
-
-        glActiveTexture(GL_TEXTURE0);
-
-        glBindTexture(
-            GL_TEXTURE_2D,
-            textures[1]
-        );
+        // Cara derecha
+        glBindTexture(GL_TEXTURE_2D, textures[1]);
 
         glDrawElements(
             GL_TRIANGLES,
@@ -847,17 +519,8 @@ int main()
             (void*)(3 * sizeof(GLuint))
         );
 
-
-        // ====================================================
-        // TRIÁNGULO 3
-        // ====================================================
-
-        glActiveTexture(GL_TEXTURE0);
-
-        glBindTexture(
-            GL_TEXTURE_2D,
-            textures[2]
-        );
+        // Cara izquierda
+        glBindTexture(GL_TEXTURE_2D, textures[2]);
 
         glDrawElements(
             GL_TRIANGLES,
@@ -866,60 +529,28 @@ int main()
             (void*)(6 * sizeof(GLuint))
         );
 
+        // Base
+        glBindTexture(GL_TEXTURE_2D, textures[0]);
 
-        // ----------------------------------------------------
-        // DESACTIVAR VAO
-        // ----------------------------------------------------
-
-        glBindVertexArray(0);
-
-
-        // ----------------------------------------------------
-        // MOSTRAR EL RESULTADO
-        // ----------------------------------------------------
-
+        glDrawElements(
+            GL_TRIANGLES,
+            3,
+            GL_UNSIGNED_INT,
+            (void*)(9 * sizeof(GLuint))
+        );
+      
+        // Mostrar resultado     
         glfwSwapBuffers(window);
-
-        // Procesar eventos del teclado, mouse, ventana, etc.
         glfwPollEvents();
     }
 
-
-    // ========================================================
-    // LIBERACIÓN DE RECURSOS
-    // ========================================================
-
-    glDeleteTextures(
-        3,
-        textures
-    );
-
-    glDeleteVertexArrays(
-        1,
-        &VAO
-    );
-
-    glDeleteBuffers(
-        1,
-        &VBO
-    );
-
-    glDeleteBuffers(
-        1,
-        &EBO
-    );
-
-    glDeleteProgram(
-        shaderProgram
-    );
-
-
-    // ========================================================
-    // FINALIZACIÓN
-    // ========================================================
+    // LIBERAR RECURSOS
+    glDeleteVertexArrays(1, &VAO);
+    glDeleteBuffers(1, &VBO);
+    glDeleteBuffers(1, &EBO);
+    glDeleteProgram(shaderProgram);
 
     glfwDestroyWindow(window);
-
     glfwTerminate();
 
     return 0;
